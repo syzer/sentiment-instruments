@@ -2,7 +2,7 @@
 
 Musical instruments analysys
 
-![alt text](https://github.com/syzer/sentiment-instruments/blob/master/data/ConfusionMatrix.jpg)
+![alt text](https://github.com/syzer/sentiment-instruments/blob/master/data/confusion_matrix.png)
 
 - reviewer ID​-IDofthereviewer,e.g.A​ 2SUAM1J3GNN3B
 - asin​ -IDoftheproduct,e.g.​​0000013714

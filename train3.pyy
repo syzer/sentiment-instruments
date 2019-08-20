@@ -22,7 +22,7 @@ df = pd.read_json('data/reviews_Musical_Instruments_5.json', lines=True)
 X = df['reviewText']
 Y = df['overall']
 
-max_words = 9000
+max_words = 12000
 tokenize = text.Tokenizer(num_words=max_words, char_level=False)
 
 tokenize.fit_on_texts(X)  # only fit on train
@@ -31,25 +31,24 @@ encoder = LabelEncoder()
 encoder.fit(Y)
 y_train = encoder.transform(Y)
 
-# Converts the stars as labels to a one-hot representation
+# Converts the stars as labels to categorical
 num_classes = np.max(y_train) + 1
 y_train = utils.to_categorical(y_train, num_classes)
-# y_test = utils.to_categorical(y_test, num_classes)
 
 x_train, x_test, y_train, y_test = train_test_split(x_train, y_train, test_size=0.2, random_state=0)
 
 # Hyper parameters
 batch_size = 12
-epochs = 10  # maybe 4 is enough
+epochs = 10
 
 # Build the model
 # Test accuracy: 0.645397
 model = Sequential()
-model.add(Dense(512, input_shape=(max_words,)))
+model.add(Dense(128, input_shape=(max_words,)))
 model.add(Activation('relu'))
 model.add(Dense(64, input_shape=(max_words,)))
 model.add(Activation('relu'))
-model.add(Dropout(0.5)) # prevent overtraining
+# model.add(Dropout(0.5)) # prevent overtraining
 model.add(Dense(num_classes))
 model.add(Activation('softmax'))
 
@@ -68,7 +67,7 @@ print('Test accuracy:', score[1])
 # save /load model
 from tensorflow.keras.models import load_model
 
-model.save('data/how_many_stars.h5')  # creates a HDF5 file 'my_model.h5'
+model.save('data/how_many_stars.h5')  # creates a HDF5 file
 del model  # deletes the existing model
 
 # Returns a compiled model
@@ -128,5 +127,4 @@ def plot_confusion_matrix(cm, classes,
 cnf_matrix = confusion_matrix(y_test_1d, y_pred_1d)
 plt.figure(figsize=(24, 20))
 plot_confusion_matrix(cnf_matrix, classes=text_labels, title="Confusion matrix")
-plt.show()
-
+plt.savefig('data/confusion_matrix.png', bbox_inches='tight')
