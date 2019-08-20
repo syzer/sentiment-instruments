@@ -12,3 +12,25 @@ Musical instruments analysys
 ● summary​-summaryofthereview
 ● unixReviewTime​-timeofthereview(unixtime)
 ● reviewTime​-timeofthereview(raw)
+
+# Install
+```bash
+pip install -r requirements.txt
+```
+
+
+# How
+```bash
+python train3.pyy
+```
+
+server
+
+```bash
+python serve_model.pyy
+```
+
+# Test
+```bash
+curl "http://localhost:5000?text=good trumpet"
+```
