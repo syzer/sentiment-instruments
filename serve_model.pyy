@@ -1,0 +1,63 @@
+# import the necessary packages
+import numpy as np
+import flask
+from tensorflow.keras.models import load_model
+from flask import request
+
+# initialize our Flask application and the Keras model
+app = flask.Flask(__name__)
+tokenize = None
+text_labels = None
+model = None
+np.random.seed(10)
+
+
+def start_server():
+    global tokenize
+    global text_labels
+    global model
+
+    import pandas as pd
+    from tensorflow.keras.preprocessing import text, sequence
+    from sklearn.preprocessing import LabelBinarizer, LabelEncoder
+
+    df = pd.read_json('data/reviews_Musical_Instruments_5.json', lines=True)
+    X = df['reviewText']
+    Y = df['overall']
+
+    max_words = 12000
+    tokenize = text.Tokenizer(num_words=max_words, char_level=False)
+
+    tokenize.fit_on_texts(X)  # only fit on train
+    tokenize.texts_to_matrix(X)
+    encoder = LabelEncoder()
+    encoder.fit(Y)
+
+    text_labels = encoder.classes_
+    model = load_model('data/how_many_stars.h5')
+
+
+@app.route("/", methods=["GET"])
+def predict():
+    text = request.args.get('text')
+    if text is None:
+        return 'provide `text` param'
+
+    print("input", text)
+    tokenized_text = tokenize.texts_to_matrix([text])
+    print("input", tokenized_text)
+
+    prediction = model.predict(np.array([tokenized_text[0]]))
+    predicted_stars = text_labels[np.argmax(prediction)]
+
+    print('==========', predicted_stars)
+    return predicted_stars
+
+
+# If this is the main thread of execution first load the model and
+# then start the server
+if __name__ == "__main__":
+    print(("* Loading Keras model and Flask starting server..."
+           "please wait until server has fully started"))
+    start_server()
+    app.run()
