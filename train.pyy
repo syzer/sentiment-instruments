@@ -1,0 +1,164 @@
+# coding=utf-8
+from __future__ import absolute_import, division, print_function, unicode_literals
+
+import itertools
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import random
+import tensorflow as tf
+from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelBinarizer, LabelEncoder
+from sklearn.utils import class_weight
+from tensorflow.keras import utils
+from tensorflow.keras.layers import Activation, Dense, Dropout, LSTM, Embedding
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.preprocessing import text, sequence
+
+# Make model reproducible
+np.random.seed(10)
+
+df = pd.read_json("data/reviews_Musical_Instruments_5.json", lines=True)
+X = df["reviewText"]
+Y = df["overall"]
+
+# Take only max 12k words
+max_words = 12000
+tokenize = text.Tokenizer(num_words=max_words, char_level=False)
+
+# Tokenize sentences
+tokenize.fit_on_texts(X)  # only fit on train
+x_train = tokenize.texts_to_matrix(X)
+
+# Fit labels
+encoder = LabelEncoder()
+encoder.fit(Y)
+y_train = encoder.transform(Y)
+
+# Classes are unbalanced so penalize 5 stars
+class_weights = class_weight.compute_class_weight(
+    "balanced", np.unique(y_train), y_train)
+print("Classes weights:", class_weights)
+
+# Converts the stars as labels to categorical
+num_classes = np.max(y_train) + 1
+y_train = utils.to_categorical(y_train, num_classes)
+
+x_train, x_test, y_train, y_test = train_test_split(
+    x_train, y_train, test_size=0.3, random_state=0)
+
+# Hyper parameters
+batch_size = 14
+epochs = 8
+
+# Build the model
+# Test accuracy: 0.645397
+model = Sequential()
+model.add(Dense(128, input_shape=(max_words,)))
+model.add(Activation("relu"))
+model.add(Dense(64, input_shape=(max_words,)))
+model.add(Activation("relu"))
+model.add(Dropout(0.2)) # prevent overtraining
+model.add(Dense(num_classes))
+model.add(Activation("softmax"))
+
+model.compile(
+    loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"])
+
+history = model.fit(x_train, y_train,
+                    batch_size=batch_size,
+                    class_weight=class_weights,
+                    epochs=epochs,
+                    verbose=1,
+                    validation_split=0.2)  # use 0.2 as validation
+
+score = model.evaluate(x_test, y_test, batch_size=batch_size, verbose=1)
+print("Test score:", score[0])
+print("Test accuracy:", score[1])
+
+# save /load model
+from tensorflow.keras.models import load_model
+
+model.save("data/how_many_stars.h5")  # creates a HDF5 file
+del model  # deletes the existing model
+
+# Returns a compiled model
+model = load_model("data/how_many_stars.h5")
+
+text_labels = encoder.classes_
+
+# Print random results
+for _ in range(20):
+    i = random.randrange(0, len(x_test))
+    prediction = model.predict(np.array([x_train[i]]))
+    predicted_label = text_labels[np.argmax(prediction)]
+    print(X.iloc[i][:50], "...")
+    print("Actual stars:" + str(Y.iloc[i]))
+    print("Predicted stars: " + str(predicted_label) + "\n")
+
+# Test model
+y_softmax = model.predict(x_train)
+y_test_1d = []
+y_pred_1d = []
+
+for i in range(len(y_train)):
+    probs = y_train[i]
+    index_arr = np.nonzero(probs)
+    one_hot_index = index_arr[0].item(0)
+    y_test_1d.append(one_hot_index)
+
+for i in range(0, len(y_softmax)):
+    probs = y_softmax[i]
+    predicted_index = np.argmax(probs)
+    y_pred_1d.append(predicted_index)
+
+
+# @see http://scikit-learn.org/stable/auto_examples/model_selection/plot_confusion_matrix.html
+def plot_confusion_matrix(
+        cm, classes, title="Confusion matrix", cmap=plt.cm.Blues,):
+    cm = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
+
+    plt.imshow(cm, interpolation="nearest", cmap=cmap)
+    plt.title(title, fontsize=30)
+    plt.colorbar()
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45, fontsize=22)
+    plt.yticks(tick_marks, classes, fontsize=22)
+
+    fmt = ".2f"
+    thresh = cm.max() / 2.
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        plt.text(j, i, format(cm[i, j], fmt),
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+
+    plt.ylabel("True stars", fontsize=25)
+    plt.xlabel("Predicted stars", fontsize=25)
+
+
+cnf_matrix = confusion_matrix(y_test_1d, y_pred_1d)
+plt.figure(figsize=(24, 20))
+plot_confusion_matrix(cnf_matrix, classes=text_labels, title="Confusion matrix")
+plt.savefig("data/confusion_matrix.png", bbox_inches="tight")
+
+# Plot history of training for the Tensorboard
+epochs = range(1, len(history.history["acc"]) + 1)
+
+plt.figure()
+plt.plot(epochs, history.history["val_loss"], label="Validation loss")
+plt.plot(epochs, history.history["loss"], label="Training Loss")
+plt.title("Training and validation loss")
+plt.xlabel("Epochs")
+plt.ylabel("Loss")
+plt.legend()
+plt.savefig("data/training_validation_loss.png", bbox_inches="tight")
+
+plt.figure()
+plt.plot(epochs, history.history["acc"], label="Accuracy")
+plt.plot(epochs, history.history["val_acc"], label="Validation accuracy")
+plt.title("Training and validation accuracy")
+plt.xlabel("Epochs")
+plt.ylabel("Accuracy[%]")
+plt.legend()
+plt.savefig("data/training_validation_acc.png", bbox_inches="tight")

@@ -1,10 +1,12 @@
 # import the necessary packages
 import numpy as np
 import flask
+
 from tensorflow.keras.models import load_model
+# from tensorflow import get_default_graph
 from flask import request
 
-# initialize our Flask application and the Keras model
+# Initialize Flask application and the Keras model
 app = flask.Flask(__name__)
 tokenize = None
 text_labels = None
@@ -41,23 +43,23 @@ def start_server():
 def predict():
     text = request.args.get('text')
     if text is None:
-        return 'provide `text` param'
+        return 'Please provide `text` parameter.'
 
     print("input", text)
     tokenized_text = tokenize.texts_to_matrix([text])
-    print("input", tokenized_text)
+    print("input", tokenized_text[0], len(tokenized_text[0]))
 
-    prediction = model.predict(np.array([tokenized_text[0]]))
+    prediction = model.predict(tokenized_text)
+    print("prediciton", prediction)
     predicted_stars = text_labels[np.argmax(prediction)]
 
     print('==========', predicted_stars)
-    return predicted_stars
+    return str(predicted_stars)
 
 
-# If this is the main thread of execution first load the model and
-# then start the server
+# If this is the main thread of execution first load the model and then start the server
 if __name__ == "__main__":
     print(("* Loading Keras model and Flask starting server..."
            "please wait until server has fully started"))
     start_server()
-    app.run()
+    app.run(threaded=False)
